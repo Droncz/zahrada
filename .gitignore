@@ -1,7 +1,7 @@
 build/
 firmware/
 from_8266/
-
+main/Kconfig.projbuild
 
 # Prerequisites
 *.d
