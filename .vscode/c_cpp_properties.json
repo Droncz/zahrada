@@ -1,0 +1,63 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}",
+                    "${env:IDF_PATH}"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "compilerPath": "${env:IOT_TOOLS}/xtensa-esp32-elf/bin",
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/main/include",
+                "${workspaceFolder}/build/include",
+                "${env:IDF_PATH}/components/app_trace/include",
+                "${env:IDF_PATH}/components/app_update/include",
+                "${env:IDF_PATH}/components/driver/include",
+                "${env:IDF_PATH}/components/esp32/include",
+                "${env:IDF_PATH}/components/esp_adc_cal/include",
+                "${env:IDF_PATH}/components/esp_http_client/include",
+                "${env:IDF_PATH}/components/esp_http_client/lib/include",
+                "${env:IDF_PATH}/components/freertos/include",
+                "${env:IDF_PATH}/components/heap/include",
+                "${env:IDF_PATH}/components/idf_test/include",
+                "${env:IDF_PATH}/components/jsmn/include",
+                "${env:IDF_PATH}/components/libsodium/libsodium/src/libsodium/include",
+                "${env:IDF_PATH}/components/log/include",
+                "${env:IDF_PATH}/components/lwip/include",
+                "${env:IDF_PATH}/components/lwip/include/apps",
+                "${env:IDF_PATH}/components/lwip/include/lwip",
+                "${env:IDF_PATH}/components/lwip/include/lwip/port",
+                "${env:IDF_PATH}/components/lwip/lwip/src/include",
+                "${env:IDF_PATH}/components/lwip/port/esp32/include",
+                "${env:IDF_PATH}/components/mbedtls/mbedtls/include",
+                "${env:IDF_PATH}/components/mbedtls/port/include",
+                "${env:IDF_PATH}/components/mdns/include",
+                "${env:IDF_PATH}/components/newlib/include",
+                "${env:IDF_PATH}/components/newlib/platform_include",
+                "${env:IDF_PATH}/components/pthread/include",
+                "${env:IDF_PATH}/components/soc/esp32/include",
+                "${env:IDF_PATH}/components/soc/include",
+                "${env:IDF_PATH}/components/tcpip_adapter/include",
+                "${env:IDF_PATH}/components/ulp/include",
+                "${env:IDF_PATH}/components/vfs/include",
+                "${env:IDF_PATH}/components/xtensa-debug-module/include",
+                "${env:IDF_PATH}/components/spi_flash/include",
+                "${env:IDF_PATH}/components/nvs_flash/include",
+                "${env:IDF_PATH}/components/libesphttpd/include",
+                "${env:IDF_PATH}/components/http_server/include"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "intelliSenseMode": "clang-x64",
+            "configurationProvider": "vector-of-bool.cmake-tools"
+        }
+    ],
+    "version": 4
+}

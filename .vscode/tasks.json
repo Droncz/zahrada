@@ -1,0 +1,73 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "options": {
+        "env": {
+            // "BIN_PATH" : "${workspaceRoot}/esp32_bin",
+            // "PATH" : "${env:PATH};${env:IOT_TOOLS}/msys32/mingw32/bin;${env:IOT_TOOLS}/msys32/usr/bin;${env:IOT_TOOLS}/xtensa-lx106-elf/bin",
+            // SysGCC toolchain používá "make", který nerozumí Windows cestám ("C:/..."), takže mu předřazuji "/msys32/usr/bin" z MSYS2 prostředí
+            // MSYS2 také obsahuje Python2 executable, takže přidávám i cestu "/msys32/mingw32/bin", kde se nachází
+            // "PATH" : "${env:PATH};${env:IOT_TOOLS}/msys32/usr/bin;${env:IOT_TOOLS}/msys32/mingw32/bin;${env:IOT_TOOLS}/SysGCC/bin;${env:IOT_TOOLS}/SysGCC/xtensa-lx106-elf/bin",
+            // "PATH" : "${env:PATH};${env:IOT_TOOLS}/msys32/usr/bin;${env:IOT_TOOLS}/msys32/mingw32/bin;${env:IOT_TOOLS}/xtensa-lx106-elf/bin",
+            "PATH" : "${env:PATH};${env:IOT_TOOLS}/msys32/usr/bin;${env:IOT_TOOLS}/msys32/opt/xtensa-esp32-elf/bin",
+            "PWD" : "."
+        }
+    },
+    "tasks": [
+        {
+            "label": "IDF cmake build",
+            "type": "shell",
+            "command": "idf.py",
+            "args": ["build"],
+        },
+        {
+            "label": "IDF cmake flash",
+            "type": "shell",
+            "command": "idf.py",
+            "args": ["flash"],
+        },
+        {
+            "label": "build webflash",
+            "type": "shell",
+            "command": "make",
+            "args": ["--jobs=13", "webflash"],
+            // "args": ["--jobs=13", "V=1", "all"],
+            // "args": ["-v"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "make all",
+            "type": "shell",
+            "command": "make",
+            "args": ["--jobs=13", "all"],
+            // "args": ["--jobs=13", "V=1", "all"],
+            // "args": ["-v"],
+        },
+        {
+            "label": "make flash",
+            "type": "shell",
+            "command": "make",
+            "args": ["--jobs=13", "flash"],
+            // "args": ["-v"],
+        },
+        {
+            "label": "build app verbose singlethread",
+            "type": "shell",
+            "command": "make",
+            "args": ["V=1", "app"],
+            // "args": ["-v"],
+        },
+        {
+            "label": "make clean",
+            "type": "shell",
+            "command": "make",
+            "args": ["--jobs=13", "clean"],
+            // "args": ["-v"],
+        }
+
+    ]
+}

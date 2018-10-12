@@ -1,0 +1,9 @@
+[
+  {
+    "name": "GCC for xtensa-esp32-elf 5.2.0",
+    "compilers": {
+      "CXX": "d:\\IoT\\TOOLS\\xtensa-esp32-elf\\bin\\xtensa-esp32-elf-g++.exe",
+      "C": "d:\\IoT\\TOOLS\\xtensa-esp32-elf\\bin\\xtensa-esp32-elf-gcc.exe"
+    }
+  }
+]
