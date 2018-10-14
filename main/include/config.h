@@ -6,6 +6,13 @@
 
 #define TAG "ZAHRADA"
 
+#define MIN(x, y)  ((x) < (y) ? (x) : (y))
+
+//******** Buffer size for flashing ROM**********
+#define BUFFSIZE 1024
+//***********************************************
+
+
 //******** PINs connections *********************
 #define GPIO_LED 2
 #define GPIO_BTN 0
