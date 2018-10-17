@@ -14,8 +14,23 @@
 
 
 //******** PINs connections *********************
-#define GPIO_LED 2
-#define GPIO_BTN 0
+// #define RELAY_1_0 GPIO_SEL_17
+// #define RELAY_1_1 GPIO_SEL_16
+// #define RELAY_1_2 GPIO_SEL_4
+// #define RELAY_1_3 GPIO_SEL_2    // LED? / Bootstrap - "Low" for flashing
+// #define RELAY_2_0 GPIO_SEL_23
+// #define RELAY_2_1 GPIO_SEL_18
+// #define RELAY_2_2 GPIO_SEL_5
+// #define RELAY_2_3 GPIO_SEL_19
+#define RELAY_1_0 17
+#define RELAY_1_1 16
+#define RELAY_1_2 4
+#define RELAY_1_3 2    // LED? / Bootstrap - "Low" for flashing
+#define RELAY_2_0 23
+#define RELAY_2_1 18
+#define RELAY_2_2 5
+#define RELAY_2_3 19
+#define GPIO_OUTPUT_PIN_SEL  ((1ULL<<RELAY_1_0) | (1ULL<<RELAY_1_1) | (1ULL<<RELAY_1_2) | (1ULL<<RELAY_1_3) | (1ULL<<RELAY_2_0) | (1ULL<<RELAY_2_1) | (1ULL<<RELAY_2_2) | (1ULL<<RELAY_2_3))
 //***********************************************
 
 //******** Definitions for the I2C bus **********

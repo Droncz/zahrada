@@ -1,18 +1,41 @@
+#include <time.h>
+#include <sys/time.h>
 
 #include "esp_log.h"
 #include "esp_wifi.h"
-#include "nvs_flash.h"
 #include "esp_system.h"
-#include "http_server.h"
 #include "esp_ota_ops.h"
 #include "esp_event_loop.h"
 #include "esp_flash_partitions.h"
 
+#include "nvs_flash.h"
+#include "http_server.h"
+#include "driver/gpio.h"
+#include "lwip/apps/sntp.h"
+
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+
 #include "config.h"
 #include "httpd.h"
-// #include "ota.h"
 
 #define HASH_LEN 32 /* SHA-256 digest length */
+
+
+/* Variable holding number of times ESP32 restarted since first boot.
+ * It is placed into RTC memory using RTC_DATA_ATTR and
+ * maintains its value when ESP32 wakes from deep sleep.
+ */
+RTC_DATA_ATTR static int boot_count = 0;
+
+/* The event group allows multiple bits for each event,
+   but we only care about one event - are we connected
+   to the AP with an IP? */
+const int CONNECTED_BIT = BIT0;
+
+/* FreeRTOS event group to signal when we are connected & ready to make a request */
+static EventGroupHandle_t wifi_event_group;
+
 
 static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
@@ -24,6 +47,9 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         ESP_ERROR_CHECK(esp_wifi_connect());
         break;
     case SYSTEM_EVENT_STA_GOT_IP:
+        // Let the other tasks know about the connection state
+        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
+
         ESP_LOGI(TAG, "SYSTEM_EVENT_STA_GOT_IP");
         ESP_LOGI(TAG, "Got IP: '%s'",
                  ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
@@ -35,6 +61,9 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
+        // Let the other tasks know about the connection state
+        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+
         ESP_LOGI(TAG, "SYSTEM_EVENT_STA_DISCONNECTED");
         ESP_ERROR_CHECK(esp_wifi_connect());
 
@@ -63,7 +92,7 @@ void print_sha256 (const uint8_t *image_hash, const char *label)
 }
 
 
-esp_err_t prepare_ota()
+void print_partition_info()
 {
     uint8_t sha_256[HASH_LEN] = { 0 };
     esp_partition_t partition;
@@ -91,24 +120,134 @@ esp_err_t prepare_ota()
     esp_partition_get_sha256(esp_ota_get_running_partition(), sha_256);
     print_sha256(sha_256, "SHA-256 for current firmware: ");
 
-    // Initialize NVS.
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        // OTA app partition table has a smaller NVS partition size than the non-OTA
-        // partition table. This size mismatch may cause NVS initialization to fail.
-        // If this happens, we erase NVS partition and initialize NVS again.
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
+}
+
+
+void print_time() 
+{
+    time_t now;
+    struct tm timeinfo;
+    char strftime_buf[64];
+
+    setenv("TZ", "CET-1CEST,M3.5.0/3,M10.5.0/2", 1);
+    tzset();
+    while (1) {
+        localtime_r(&now, &timeinfo);
+        strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+        printf("The current date/time in Prague is: %s\r\n", strftime_buf);
+        vTaskDelay(600 * SECOND);
     }
-    return err;
+}
+
+
+void initialise_sntp()
+{
+    time_t now = 0;
+    struct tm timeinfo = { 0 };
+    int retry = 0;
+    const int retry_count = 10;
+    char strftime_buf[64];
+
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    // Is time set? If not, tm_year will be (1970 - 1900).
+    if (timeinfo.tm_year < (2016 - 1900)) {
+        ESP_LOGI(TAG, "Time is not set yet. Waiting for WiFi connection...\r\n");
+        xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
+        ESP_LOGI(TAG, "Getting time over NTP...\r\n");
+        sntp_setoperatingmode(SNTP_OPMODE_POLL);
+        sntp_setservername(0, "pool.ntp.org");
+        sntp_init();
+
+        // wait for time to be set
+        while(timeinfo.tm_year < (2016 - 1900) && ++retry < retry_count) {
+            ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry, retry_count);
+            vTaskDelay(2000 / portTICK_PERIOD_MS);
+            time(&now);
+            localtime_r(&now, &timeinfo);
+        }
+
+        // time(&now);
+        // localtime_r(&now, &timeinfo);
+    }
+
+    // Set timezone to China Standard Time
+    setenv("TZ", "CST-8", 1);
+    tzset();
+    localtime_r(&now, &timeinfo);
+    strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+    ESP_LOGI(TAG, "The current date/time in Shanghai is: %s", strftime_buf);
+
+    // Set timezone to Central European Standard Time and print local time
+    setenv("TZ", "CET-1CEST,M3.5.0/3,M10.5.0/2", 1);
+    tzset();
+    localtime_r(&now, &timeinfo);
+    strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+    ESP_LOGI(TAG, "The current date/time in Prague is: %s", strftime_buf);
+
+    /*
+    const int deep_sleep_sec = 10;
+    ESP_LOGI(TAG, "Entering deep sleep for %d seconds", deep_sleep_sec);
+    esp_deep_sleep(1000000LL * deep_sleep_sec);
+    */
+   
+    TaskHandle_t task_Handle = NULL;
+    xTaskCreate( print_time, "print_time", 2048, NULL, tskIDLE_PRIORITY, &task_Handle );
+    configASSERT( task_Handle );
+}
+
+
+void blink()
+{
+    int cnt = 0;
+
+    while(1) {
+        vTaskDelay(SECOND);
+        cnt++;
+        // printf("Blink count: %d\n", cnt);
+        gpio_set_level(RELAY_1_0, cnt % 2);
+        gpio_set_level(RELAY_1_1, cnt % 2);
+    }
+    
+}
+
+
+void initialise_gpio()
+{
+    gpio_config_t io_conf;
+
+    //disable interrupt
+    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
+    //set as output mode
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    //bit mask of the pins that you want to set
+    io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
+    //disable pull-down mode
+    io_conf.pull_down_en = 0;
+    //disable pull-up mode
+    io_conf.pull_up_en = 1;
+    //configure GPIO with the given settings
+    gpio_config(&io_conf);
+
+
+    // Just try to blink with RELAY_1_0 and RELAY_1_1 for now
+    TaskHandle_t task_Handle = NULL;
+    xTaskCreate( blink, "blink", 2048, NULL, tskIDLE_PRIORITY, &task_Handle );
+    configASSERT( task_Handle );
+
 }
 
 
 static void initialise_wifi(void)
 {
-    tcpip_adapter_init();
     static httpd_handle_t webserver = NULL;
+
+    tcpip_adapter_init();
+    
+    wifi_event_group = xEventGroupCreate();
+    
     ESP_ERROR_CHECK(esp_event_loop_init(event_handler, &webserver));
+    
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
@@ -128,28 +267,49 @@ static void initialise_wifi(void)
 void app_main()
 {
     /************************************************
-    1. Vypíše základní info o chipu
-    2. inicializuje Wi-Fi a v rámci inicializace hned po získání IP spustí webserver
-        - základní funkce webserveru (start, stop, registrace handlerů) je v "httpd.c"
-        - definice handlerů a funkce pro práci jsou v "urls.c"
-    3. spustí OTA funkci
+    1. Prints basic chip info
+    3. Runs basic preparation for the OTA function
     ************************************************/ 
 
    printf("\r\n\r\n======================================================\r\n");
 
+    ++boot_count;
+    ESP_LOGI(TAG, "Boot count: %d", boot_count);
+
+    // Print basic chip info
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
     printf("This is ESP32 chip with %d CPU cores, WiFi%s%s, ",
             chip_info.cores,
             (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
             (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
-
     printf("silicon revision %d, ", chip_info.revision);
-
     printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
             (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
-    ESP_ERROR_CHECK(prepare_ota());
-    
+    // Initialize NVS.
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        // OTA app partition table has a smaller NVS partition size than the non-OTA
+        // partition table. This size mismatch may cause NVS initialization to fail.
+        // If this happens, we erase NVS partition and initialize NVS again.
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+
+    // Call for the Wi-Fi initialization, which in addition sets up system event handler to
+    //  1) on the event of reception of the IP address:
+    //      1.1) starts the webserver
+    //      1.2) sets "CONNECTED_BIT" using the FreeRTOS "Event Group" to signal other tasks
     initialise_wifi();
+
+    print_partition_info();
+    
+    // After the Wi-fi connects, try to receive and set the system time using the NTP protocol
+    // Setup a task which will print the time every few minutes
+    initialise_sntp();
+
+    // Setup GPIOs for the requested function
+    initialise_gpio();
+    
 }
