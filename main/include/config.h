@@ -25,10 +25,10 @@
 #define RELAY_1_0 17
 #define RELAY_1_1 16
 #define RELAY_1_2 4
-#define RELAY_1_3 2    // LED? / Bootstrap - "Low" for flashing
+#define RELAY_1_3 2    // Bootstrap - "Low" for flashing
 #define RELAY_2_0 23
 #define RELAY_2_1 18
-#define RELAY_2_2 5
+#define RELAY_2_2 5    // Blue onboard LED 
 #define RELAY_2_3 19
 #define GPIO_OUTPUT_PIN_SEL  ((1ULL<<RELAY_1_0) | (1ULL<<RELAY_1_1) | (1ULL<<RELAY_1_2) | (1ULL<<RELAY_1_3) | (1ULL<<RELAY_2_0) | (1ULL<<RELAY_2_1) | (1ULL<<RELAY_2_2) | (1ULL<<RELAY_2_3))
 //***********************************************

@@ -48,7 +48,6 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         break;
     case SYSTEM_EVENT_STA_GOT_IP:
         // Let the other tasks know about the connection state
-        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
 
         ESP_LOGI(TAG, "SYSTEM_EVENT_STA_GOT_IP");
         ESP_LOGI(TAG, "Got IP: '%s'",
@@ -58,6 +57,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         if (*webserver == NULL) {
             *webserver = start_webserver();
         }
+        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
 
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
@@ -132,6 +132,7 @@ void print_time()
     setenv("TZ", "CET-1CEST,M3.5.0/3,M10.5.0/2", 1);
     tzset();
     while (1) {
+        time(&now);
         localtime_r(&now, &timeinfo);
         strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
         printf("The current date/time in Prague is: %s\r\n", strftime_buf);
@@ -162,7 +163,7 @@ void initialise_sntp()
         // wait for time to be set
         while(timeinfo.tm_year < (2016 - 1900) && ++retry < retry_count) {
             ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry, retry_count);
-            vTaskDelay(2000 / portTICK_PERIOD_MS);
+            vTaskDelay(2 * SECOND);
             time(&now);
             localtime_r(&now, &timeinfo);
         }
@@ -170,6 +171,7 @@ void initialise_sntp()
         // time(&now);
         // localtime_r(&now, &timeinfo);
     }
+
 
     // Set timezone to China Standard Time
     setenv("TZ", "CST-8", 1);
@@ -207,6 +209,8 @@ void blink()
         // printf("Blink count: %d\n", cnt);
         gpio_set_level(RELAY_1_0, cnt % 2);
         gpio_set_level(RELAY_1_1, cnt % 2);
+        // gpio_set_level(RELAY_1_3, cnt % 2);
+        gpio_set_level(RELAY_2_2, cnt % 2); // onboard LED blink
     }
     
 }

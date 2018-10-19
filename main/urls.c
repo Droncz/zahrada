@@ -22,8 +22,6 @@ esp_err_t reboot_handler(httpd_req_t *req)
     httpd_resp_set_status(req, HTTPD_200);
     httpd_resp_send(req, resp_str, strlen(resp_str));
     httpd_trigger_sess_close(req->handle, socket);
-    // ESP_LOGI(TAG, "Waiting 5 secs to process http request.\n");
-    // vTaskDelay(5*SECOND);
     ESP_LOGW(TAG, "Restarting now.\n");
     fflush(stdout);
     esp_restart();
