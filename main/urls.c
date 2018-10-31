@@ -13,6 +13,50 @@
 #define max_resp_size 50
 
 
+char *replaceWord(const char *s, const char *oldW, const char *newW) 
+{ 
+    char *result; 
+    int i, cnt = 0; 
+    int newWlen = strlen(newW); 
+    int oldWlen = strlen(oldW); 
+  
+    // Counting the number of times old word 
+    // occur in the string 
+    for (i = 0; s[i] != '\0'; i++) 
+    { 
+        if (strstr(&s[i], oldW) == &s[i]) 
+        { 
+            cnt++; 
+  
+            // Jumping to index after the old word. 
+            i += oldWlen - 1; 
+        } 
+    } 
+
+    ESP_LOGD(TAG, "A pattern \"%s\" found %d times.\r\n", oldW, cnt);
+
+    // Making new string of enough length 
+    result = (char *)malloc(i + cnt * (newWlen - oldWlen) + 1); 
+
+    i = 0; 
+    while (*s) 
+    { 
+        // compare the substring with the result 
+        if (strstr(s, oldW) == s) 
+        { 
+            strcpy(&result[i], newW); 
+            i += newWlen; 
+            s += oldWlen; 
+        } 
+        else
+            result[i++] = *s++; 
+    } 
+  
+    result[i] = '\0'; 
+    return result; 
+} 
+
+
 esp_err_t reboot_handler(httpd_req_t *req)
 {
     const char *resp_str = "RESTARTING THE SYSTEM.";
@@ -128,12 +172,116 @@ esp_err_t upload_firmware_handler(httpd_req_t *req)
 }
 
 
-esp_err_t static_html_get_handler(httpd_req_t *req)
+char *tplSwitch(httpd_req_t *req)
 {
-    char*  buf;
+    char *buff;
+    char *page_orig;
+    char value[50];
+    size_t buf_len;
+
+    page_orig = req->user_ctx;
+
+    ESP_LOGI(TAG, "Changing the switch page");
+    
+    
+    // Read URL query string length and allocate memory for length + 1 extra byte for null termination
+    buf_len = httpd_req_get_url_query_len(req) + 1;
+    if (buf_len > 1) {
+        buff = malloc(buf_len);
+        if (httpd_req_get_url_query_str(req, buff, buf_len) == ESP_OK) {
+            ESP_LOGI(TAG, "Found URL query => %s", buff);
+            char param[32];
+            /* Get value of expected key from query string */
+            if (httpd_query_key_value(buff, "RELAY_1_0-state", param, sizeof(param)) == ESP_OK) {
+                ESP_LOGI(TAG, "Found URL query parameter => RELAY_1_0-state=%s", param);
+                if (strcmp(param,"0")) {
+                    ESP_LOGI(TAG, "Turning the relay ON!");
+                    gpio_set_level(RELAY_1_0, 1);
+                    RELAY_1_0_state = 1;
+                } else {
+                    ESP_LOGI(TAG, "Turning the relay OFF!");
+                    gpio_set_level(RELAY_1_0, 0);
+                    RELAY_1_0_state = 0;
+                }
+
+            }
+            if (httpd_query_key_value(buff, "RELAY_1_0-enabled", param, sizeof(param)) == ESP_OK) {
+                ESP_LOGI(TAG, "Found URL query parameter => RELAY_1_0-enabled=%s", param);
+                if (strcmp(param,"0")) {
+                    ESP_LOGI(TAG, "Enabling the relay!");
+                    RELAY_1_0_enabled = 1;
+                } else {
+                    ESP_LOGI(TAG, "Disabling the relay!");
+                    RELAY_1_0_enabled = 0;
+                }
+            }
+        }
+        free(buff);
+    }
+
+
+    sprintf(value, "%d", RELAY_1_0);
+    buff = replaceWord(page_orig, "%RELAY_1_0-gpio%", value);
+
+    sprintf(value, "%d", RELAY_1_1);
+    buff = replaceWord(buff, "%RELAY_1_1-gpio%", value);
+    
+    sprintf(value, "%d", RELAY_1_0_state);
+    buff = replaceWord(buff, "%RELAY_1_0-state%", value);
+
+    sprintf(value, "%d", RELAY_1_1_state);
+    buff = replaceWord(buff, "%RELAY_1_1-state%", value);
+
+    sprintf(value, "%d", !RELAY_1_0_state);
+    buff = replaceWord(buff, "%RELAY_1_0-newstate%", value);
+
+    sprintf(value, "%d", !RELAY_1_1_state);
+    buff = replaceWord(buff, "%RELAY_1_1-newstate%", value);
+
+    buff = replaceWord(buff, "%RELAY_1_0-checkedon%", (RELAY_1_0_enabled == 1 ? "checked" : ""));
+
+    buff = replaceWord(buff, "%RELAY_1_0-checkedoff%", (RELAY_1_0_enabled == 0 ? "checked" : ""));
+
+    buff = replaceWord(buff, "%RELAY_1_1-checkedon%", (RELAY_1_1_enabled == 1 ? "checked" : ""));
+
+    buff = replaceWord(buff, "%RELAY_1_1-checkedoff%", (RELAY_1_1_enabled == 0 ? "checked" : ""));
+
+    return buff;
+}
+
+
+char *tplIndex(char *page_orig)
+{
+    static int hitCounter=0;
+    char buff[128];
+
+    hitCounter++;
+    sprintf(buff, "%d", hitCounter);
+    ESP_LOGI(TAG, "Changing the index page string \"counter\" for: %s\r\n", buff);
+    return replaceWord(page_orig, "%counter%", buff);
+}
+
+
+esp_err_t html_get_handler(httpd_req_t *req)
+{
+    char *buf;
+    char *page_final = NULL;
     size_t buf_len;
 
     ESP_LOGI(TAG, "Handling URI: %s", req->uri);
+
+
+    // Find cases with dynamic content and serve them with appropriate function
+    if (strcmp(req->uri, "/index.html") == 0) {
+        page_final = tplIndex(req->user_ctx);
+    } else if (strncmp(req->uri, "/switch.cgi", 11) == 0) {
+        page_final = tplSwitch(req);
+    } else {
+        // page_final = (char *) malloc(strlen(req->user_ctx) + 1); 
+        // strcpy(page_copy, req->user_ctx);
+        page_final = req->user_ctx;
+    }
+
     // Get header values
     // allocate memory for header string length + 1 extra byte for null termination
     buf_len = httpd_req_get_hdr_value_len(req, "Host") + 1;
@@ -145,36 +293,7 @@ esp_err_t static_html_get_handler(httpd_req_t *req)
         }
         free(buf);
     }
-/*     buf_len = httpd_req_get_hdr_value_len(req, "Test-Header-1") + 1;
-    if (buf_len > 1) {
-        buf = malloc(buf_len);
-        if (httpd_req_get_hdr_value_str(req, "Test-Header-1", buf, buf_len) == ESP_OK) {
-            ESP_LOGI(TAG, "Found header => Test-Header-1: %s", buf);
-        }
-        free(buf);
-    }
- */
-    // Read URL query string length and allocate memory for length + 1 extra byte for null termination
-    buf_len = httpd_req_get_url_query_len(req) + 1;
-    if (buf_len > 1) {
-        buf = malloc(buf_len);
-        if (httpd_req_get_url_query_str(req, buf, buf_len) == ESP_OK) {
-            ESP_LOGI(TAG, "Found URL query => %s", buf);
-            char param[32];
-            /* Get value of expected key from query string */
-            if (httpd_query_key_value(buf, "query1", param, sizeof(param)) == ESP_OK) {
-                ESP_LOGI(TAG, "Found URL query parameter => query1=%s", param);
-            }
-            if (httpd_query_key_value(buf, "query3", param, sizeof(param)) == ESP_OK) {
-                ESP_LOGI(TAG, "Found URL query parameter => query3=%s", param);
-            }
-            if (httpd_query_key_value(buf, "query2", param, sizeof(param)) == ESP_OK) {
-                ESP_LOGI(TAG, "Found URL query parameter => query2=%s", param);
-            }
-        }
-        free(buf);
-    }
-
+    
     /* Set some custom headers */
     // httpd_resp_set_hdr(req, "Custom-Header-1", "Custom-Value-1");
     // httpd_resp_set_hdr(req, "Custom-Header-2", "Custom-Value-2");
@@ -183,7 +302,8 @@ esp_err_t static_html_get_handler(httpd_req_t *req)
 
     /* Send response with custom headers and body set as the
      * string passed in user context*/
-    const char* page_content = (const char*) req->user_ctx;
+    const char* page_content = page_final;
+    
     // ESP_LOGI(TAG, "odkaz na text: %p\r\n\r\nText:\r\n%s", page_content, page_content);
     httpd_resp_send(req, page_content, strlen(page_content));
     // After sending the HTTP response the old HTTP request headers are lost
@@ -191,7 +311,7 @@ esp_err_t static_html_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-esp_err_t static_html_post_handler(httpd_req_t *req)
+esp_err_t html_post_handler(httpd_req_t *req)
 {
     /* Read request content */
     char content[100];

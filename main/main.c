@@ -21,6 +21,24 @@
 
 #define HASH_LEN 32 /* SHA-256 digest length */
 
+// these are externally declared in config.h to be used in other files too
+int RELAY_1_0_state = 0;
+int RELAY_1_1_state = 0;
+int RELAY_1_2_state = 0;
+int RELAY_1_3_state = 0;
+int RELAY_2_0_state = 0;
+int RELAY_2_1_state = 0;
+int RELAY_2_2_state = 0;
+int RELAY_2_3_state = 0;
+
+int RELAY_1_0_enabled = 1;
+int RELAY_1_1_enabled = 1;
+int RELAY_1_2_enabled = 1;
+int RELAY_1_3_enabled = 1;
+int RELAY_2_0_enabled = 1;
+int RELAY_2_1_enabled = 1;
+int RELAY_2_2_enabled = 1;
+int RELAY_2_3_enabled = 1;
 
 /* Variable holding number of times ESP32 restarted since first boot.
  * It is placed into RTC memory using RTC_DATA_ATTR and
@@ -207,10 +225,17 @@ void blink()
         vTaskDelay(SECOND);
         cnt++;
         // printf("Blink count: %d\n", cnt);
-        gpio_set_level(RELAY_1_0, cnt % 2);
-        gpio_set_level(RELAY_1_1, cnt % 2);
-        // gpio_set_level(RELAY_1_3, cnt % 2);
+        if (RELAY_1_0_enabled) {
+            gpio_set_level(RELAY_1_0, cnt % 2);
+            RELAY_1_0_state = cnt % 2;
+        }
+        if (RELAY_1_1_enabled) {
+            gpio_set_level(RELAY_1_1, cnt % 2);
+            RELAY_1_1_state = cnt % 2;
+        }
+
         gpio_set_level(RELAY_2_2, cnt % 2); // onboard LED blink
+        RELAY_2_2_state = cnt % 2;
     }
     
 }
