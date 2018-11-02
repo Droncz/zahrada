@@ -8,6 +8,10 @@
 #include <http_server.h>
 
 #include "config.h"
+#include "nvs_funcs.h"
+#include "httpd.h"
+
+
 
 #define HTTPD_302      "302 Found"
 #define max_resp_size 50
@@ -197,22 +201,24 @@ char *tplSwitch(httpd_req_t *req)
                 if (strcmp(param,"0")) {
                     ESP_LOGI(TAG, "Turning the relay ON!");
                     gpio_set_level(RELAY_1_0, 1);
-                    RELAY_1_0_state = 1;
+                    relays[0].state = 1;
                 } else {
                     ESP_LOGI(TAG, "Turning the relay OFF!");
                     gpio_set_level(RELAY_1_0, 0);
-                    RELAY_1_0_state = 0;
+                    relays[0].state = 0;
                 }
 
             }
             if (httpd_query_key_value(buff, "RELAY_1_0-enabled", param, sizeof(param)) == ESP_OK) {
                 ESP_LOGI(TAG, "Found URL query parameter => RELAY_1_0-enabled=%s", param);
                 if (strcmp(param,"0")) {
-                    ESP_LOGI(TAG, "Enabling the relay!");
-                    RELAY_1_0_enabled = 1;
+                    ESP_LOGI(TAG, "Enabling the relay %s!", relays[0].name);
+                    relays[0].enabled = 1;
+                    ESP_ERROR_CHECK(nvs_save_int32(relays[0].enabled, relays[0].name));
                 } else {
-                    ESP_LOGI(TAG, "Disabling the relay!");
-                    RELAY_1_0_enabled = 0;
+                    ESP_LOGI(TAG, "Disabling the relay %s!", relays[0].name);
+                    relays[0].enabled = 0;
+                    ESP_ERROR_CHECK(nvs_save_int32(relays[0].enabled, relays[0].name));
                 }
             }
         }
@@ -220,37 +226,37 @@ char *tplSwitch(httpd_req_t *req)
     }
 
 
-    sprintf(value, "%d", RELAY_1_0);
+    sprintf(value, "%d", relays[0].gpio_num);
     buff = replaceWord(page_orig, "%RELAY_1_0-gpio%", value);
 
-    sprintf(value, "%d", RELAY_1_1);
+    sprintf(value, "%d", relays[1].gpio_num);
     buff = replaceWord(buff, "%RELAY_1_1-gpio%", value);
     
-    sprintf(value, "%d", RELAY_1_0_state);
+    sprintf(value, "%d", relays[0].state);
     buff = replaceWord(buff, "%RELAY_1_0-state%", value);
 
-    sprintf(value, "%d", RELAY_1_1_state);
+    sprintf(value, "%d", relays[1].state);
     buff = replaceWord(buff, "%RELAY_1_1-state%", value);
 
-    sprintf(value, "%d", !RELAY_1_0_state);
+    sprintf(value, "%d", !relays[0].state);
     buff = replaceWord(buff, "%RELAY_1_0-newstate%", value);
 
-    sprintf(value, "%d", !RELAY_1_1_state);
+    sprintf(value, "%d", !relays[1].state);
     buff = replaceWord(buff, "%RELAY_1_1-newstate%", value);
 
-    buff = replaceWord(buff, "%RELAY_1_0-checkedon%", (RELAY_1_0_enabled == 1 ? "checked" : ""));
+    buff = replaceWord(buff, "%RELAY_1_0-checkedon%", (relays[0].enabled == 1 ? "checked" : ""));
 
-    buff = replaceWord(buff, "%RELAY_1_0-checkedoff%", (RELAY_1_0_enabled == 0 ? "checked" : ""));
+    buff = replaceWord(buff, "%RELAY_1_0-checkedoff%", (relays[0].enabled == 0 ? "checked" : ""));
 
-    buff = replaceWord(buff, "%RELAY_1_1-checkedon%", (RELAY_1_1_enabled == 1 ? "checked" : ""));
+    buff = replaceWord(buff, "%RELAY_1_1-checkedon%", (relays[1].enabled == 1 ? "checked" : ""));
 
-    buff = replaceWord(buff, "%RELAY_1_1-checkedoff%", (RELAY_1_1_enabled == 0 ? "checked" : ""));
+    buff = replaceWord(buff, "%RELAY_1_1-checkedoff%", (relays[1].enabled == 0 ? "checked" : ""));
 
     return buff;
 }
 
-
-char *tplIndex(char *page_orig)
+/* ORIGINAL writing of the function (not as callback)
+char *tplIndex(httpd_req_t *req, char *page_orig)
 {
     static int hitCounter=0;
     char buff[128];
@@ -259,6 +265,20 @@ char *tplIndex(char *page_orig)
     sprintf(buff, "%d", hitCounter);
     ESP_LOGI(TAG, "Changing the index page string \"counter\" for: %s\r\n", buff);
     return replaceWord(page_orig, "%counter%", buff);
+}
+ */
+
+int tplIndex(httpd_req_t *req, char *token)
+{
+    static int hitCounter=0;
+
+	if (strcmp(token, "counter")==0) {
+		hitCounter++;
+        ESP_LOGD(TAG, "Changing the index page string \"counter\" for: %d\r\n", hitCounter);
+		sprintf(token, "%d", hitCounter);
+	}
+
+    return sizeof(token);
 }
 
 
@@ -269,18 +289,6 @@ esp_err_t html_get_handler(httpd_req_t *req)
     size_t buf_len;
 
     ESP_LOGI(TAG, "Handling URI: %s", req->uri);
-
-
-    // Find cases with dynamic content and serve them with appropriate function
-    if (strcmp(req->uri, "/index.html") == 0) {
-        page_final = tplIndex(req->user_ctx);
-    } else if (strncmp(req->uri, "/switch.cgi", 11) == 0) {
-        page_final = tplSwitch(req);
-    } else {
-        // page_final = (char *) malloc(strlen(req->user_ctx) + 1); 
-        // strcpy(page_copy, req->user_ctx);
-        page_final = req->user_ctx;
-    }
 
     // Get header values
     // allocate memory for header string length + 1 extra byte for null termination
@@ -300,12 +308,28 @@ esp_err_t html_get_handler(httpd_req_t *req)
 
     httpd_resp_set_type(req, HTTPD_TYPE_TEXT);
 
+    // Find cases with dynamic content and serve them with appropriate function
+    if (strcmp(req->uri, "/index.html") == 0) {
+        // page_final = tplIndex(req->user_ctx);
+        ESP_LOGI(TAG, "Calling tokenize: %p, %p, %p .\r\n", req, req->user_ctx, tplIndex);
+        tokenize(req, req->user_ctx, tplIndex);
+    } else if (strncmp(req->uri, "/switch.cgi", 11) == 0) {
+        page_final = tplSwitch(req);
+        httpd_resp_send(req, page_final, strlen(page_final));
+    } else {
+        // page_final = (char *) malloc(strlen(req->user_ctx) + 1); 
+        // strcpy(page_copy, req->user_ctx);
+        page_final = req->user_ctx;
+        httpd_resp_send(req, page_final, strlen(page_final));
+    }
+
     /* Send response with custom headers and body set as the
-     * string passed in user context*/
-    const char* page_content = page_final;
+     * string passed in user context
+     * const char* page_content = page_final;
+     */
     
     // ESP_LOGI(TAG, "odkaz na text: %p\r\n\r\nText:\r\n%s", page_content, page_content);
-    httpd_resp_send(req, page_content, strlen(page_content));
+    // httpd_resp_send(req, page_content, strlen(page_content));
     // After sending the HTTP response the old HTTP request headers are lost
 
     return ESP_OK;

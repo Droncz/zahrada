@@ -18,38 +18,18 @@
 
 #include "config.h"
 #include "httpd.h"
+#include "nvs_funcs.h"
 
 #define HASH_LEN 32 /* SHA-256 digest length */
-
-// these are externally declared in config.h to be used in other files too
-int RELAY_1_0_state = 0;
-int RELAY_1_1_state = 0;
-int RELAY_1_2_state = 0;
-int RELAY_1_3_state = 0;
-int RELAY_2_0_state = 0;
-int RELAY_2_1_state = 0;
-int RELAY_2_2_state = 0;
-int RELAY_2_3_state = 0;
-
-int RELAY_1_0_enabled = 1;
-int RELAY_1_1_enabled = 1;
-int RELAY_1_2_enabled = 1;
-int RELAY_1_3_enabled = 1;
-int RELAY_2_0_enabled = 1;
-int RELAY_2_1_enabled = 1;
-int RELAY_2_2_enabled = 1;
-int RELAY_2_3_enabled = 1;
-
-/* Variable holding number of times ESP32 restarted since first boot.
- * It is placed into RTC memory using RTC_DATA_ATTR and
- * maintains its value when ESP32 wakes from deep sleep.
- */
-RTC_DATA_ATTR static int boot_count = 0;
 
 /* The event group allows multiple bits for each event,
    but we only care about one event - are we connected
    to the AP with an IP? */
 const int CONNECTED_BIT = BIT0;
+
+const int relays_gpios[] = RELAYS_GPIOS;
+char* relays_names[] = RELAYS_NAMES;
+relay_t relays[RELAYS_USED];
 
 /* FreeRTOS event group to signal when we are connected & ready to make a request */
 static EventGroupHandle_t wifi_event_group;
@@ -225,25 +205,26 @@ void blink()
         vTaskDelay(SECOND);
         cnt++;
         // printf("Blink count: %d\n", cnt);
-        if (RELAY_1_0_enabled) {
-            gpio_set_level(RELAY_1_0, cnt % 2);
-            RELAY_1_0_state = cnt % 2;
+        if (relays[0].enabled) {
+            gpio_set_level(relays[0].gpio_num, cnt % 2);
+            relays[0].state = cnt % 2;
         }
-        if (RELAY_1_1_enabled) {
-            gpio_set_level(RELAY_1_1, cnt % 2);
-            RELAY_1_1_state = cnt % 2;
+        if (relays[1].enabled) {
+            gpio_set_level(relays[1].gpio_num, cnt % 2);
+            relays[1].state = cnt % 2;
         }
 
-        gpio_set_level(RELAY_2_2, cnt % 2); // onboard LED blink
-        RELAY_2_2_state = cnt % 2;
+        gpio_set_level(relays[6].gpio_num, cnt % 2); // onboard LED blink
+        relays[6].state = cnt % 2;
     }
     
 }
 
 
-void initialise_gpio()
+void initialise_relays()
 {
     gpio_config_t io_conf;
+    int i;
 
     //disable interrupt
     io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
@@ -258,7 +239,13 @@ void initialise_gpio()
     //configure GPIO with the given settings
     gpio_config(&io_conf);
 
-
+    for(i = 0; i < RELAYS_USED; i++) {
+        relays[i].name = relays_names[i];
+        relays[i].gpio_num = relays_gpios[i];
+        relays[i].state = 0;
+        ESP_ERROR_CHECK(nvs_read_int32(&relays[i].enabled, relays_names[i]));
+    }
+    
     // Just try to blink with RELAY_1_0 and RELAY_1_1 for now
     TaskHandle_t task_Handle = NULL;
     xTaskCreate( blink, "blink", 2048, NULL, tskIDLE_PRIORITY, &task_Handle );
@@ -266,6 +253,29 @@ void initialise_gpio()
 
 }
 
+static void initialise_nvs(void)
+{
+    esp_err_t err;
+    int32_t restart_counter;
+
+    err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        // OTA app partition table has a smaller NVS partition size than the non-OTA
+        // partition table. This size mismatch may cause NVS initialization to fail.
+        // If this happens, we erase NVS partition and initialize NVS again.
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK( err );
+
+    ESP_ERROR_CHECK(nvs_read_int32(&restart_counter, "restart_counter"));
+    restart_counter++;
+    ESP_LOGI(TAG, "Boot count: %d", restart_counter);
+    ESP_ERROR_CHECK(nvs_save_int32(restart_counter, "restart_counter"));
+
+    printf("\n");
+
+}
 
 static void initialise_wifi(void)
 {
@@ -302,9 +312,6 @@ void app_main()
 
    printf("\r\n\r\n======================================================\r\n");
 
-    ++boot_count;
-    ESP_LOGI(TAG, "Boot count: %d", boot_count);
-
     // Print basic chip info
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
@@ -317,14 +324,7 @@ void app_main()
             (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
     // Initialize NVS.
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        // OTA app partition table has a smaller NVS partition size than the non-OTA
-        // partition table. This size mismatch may cause NVS initialization to fail.
-        // If this happens, we erase NVS partition and initialize NVS again.
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
+    initialise_nvs();
 
     // Call for the Wi-Fi initialization, which in addition sets up system event handler to
     //  1) on the event of reception of the IP address:
@@ -339,6 +339,6 @@ void app_main()
     initialise_sntp();
 
     // Setup GPIOs for the requested function
-    initialise_gpio();
+    initialise_relays();
     
 }

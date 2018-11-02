@@ -4,6 +4,15 @@
 #define WIFI_SSID CONFIG_WIFI_SSID
 #define WIFI_PASSWORD CONFIG_WIFI_PASSWORD
 
+//******** Define level of logging **************
+#undef LOG_LOCAL_LEVEL
+// #define LOG_LOCAL_LEVEL ESP_LOG_ERROR
+// #define LOG_LOCAL_LEVEL ESP_LOG_WARNING
+#define LOG_LOCAL_LEVEL ESP_LOG_INFO
+// #define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
+// #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+//***********************************************
+
 #define TAG "ZAHRADA"
 
 #ifndef MIN
@@ -14,41 +23,47 @@
 #define BUFFSIZE 1024
 //***********************************************
 
+//******** Maximum size of tokens in HTTP *******
+#define MAXTOKENSIZE 64
+//***********************************************
 
 //******** PINs connections *********************
-// #define RELAY_1_0 GPIO_SEL_17
-// #define RELAY_1_1 GPIO_SEL_16
-// #define RELAY_1_2 GPIO_SEL_4
-// #define RELAY_1_3 GPIO_SEL_2    // Bootstrap - "Low" for flashing
-// #define RELAY_2_0 GPIO_SEL_23
-// #define RELAY_2_1 GPIO_SEL_18
-// #define RELAY_2_2 GPIO_SEL_5    // Blue onboard LED 
-// #define RELAY_2_3 GPIO_SEL_19
+/* 
+#define RELAY_1_0 GPIO_SEL_17
+#define RELAY_1_1 GPIO_SEL_16
+#define RELAY_1_2 GPIO_SEL_4
+#define RELAY_1_3 GPIO_SEL_2    // Bootstrap - "Low" for flashing
+#define RELAY_2_0 GPIO_SEL_23
+#define RELAY_2_1 GPIO_SEL_18
+#define RELAY_2_2 GPIO_SEL_5    // Blue onboard LED 
+#define RELAY_2_3 GPIO_SEL_19
+*/
+
 #define RELAY_1_0 17
-extern int RELAY_1_0_state;
-extern int RELAY_1_0_enabled;
 #define RELAY_1_1 16
-extern int RELAY_1_1_state;
-extern int RELAY_1_1_enabled;
 #define RELAY_1_2 4
-extern int RELAY_1_2_state;
-extern int RELAY_1_2_enabled;
 #define RELAY_1_3 2    // Bootstrap - "Low" for flashing
-extern int RELAY_1_3_state;
-extern int RELAY_1_3_enabled;
 #define RELAY_2_0 23
-extern int RELAY_2_0_state;
-extern int RELAY_2_0_enabled;
 #define RELAY_2_1 18
-extern int RELAY_2_1_state;
-extern int RELAY_2_1_enabled;
 #define RELAY_2_2 5    // Blue onboard LED 
-extern int RELAY_2_2_state;
-extern int RELAY_2_2_enabled;
 #define RELAY_2_3 19
-extern int RELAY_2_3_state;
-extern int RELAY_2_3_enabled;
 #define GPIO_OUTPUT_PIN_SEL  ((1ULL<<RELAY_1_0) | (1ULL<<RELAY_1_1) | (1ULL<<RELAY_1_2) | (1ULL<<RELAY_1_3) | (1ULL<<RELAY_2_0) | (1ULL<<RELAY_2_1) | (1ULL<<RELAY_2_2) | (1ULL<<RELAY_2_3))
+
+#define RELAYS_GPIOS { RELAY_1_0, RELAY_1_1, RELAY_1_2, RELAY_1_3, RELAY_2_0, RELAY_2_1, RELAY_2_2, RELAY_2_3 }
+#define RELAYS_NAMES { "RELAY_1_0", "RELAY_1_1", "RELAY_1_2", "RELAY_1_3", "RELAY_2_0", "RELAY_2_1", "RELAY_2_2", "RELAY_2_3" }
+#define RELAYS_USED 8
+
+typedef struct {
+    char *name;
+    int gpio_num;
+    int state;
+    int enabled;
+} relay_t;
+
+extern relay_t relays[];
+extern const int relays_gpios[];
+extern char* relays_names[];
+
 //***********************************************
 
 //******** Definitions for the I2C bus **********

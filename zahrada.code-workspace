@@ -28,7 +28,9 @@
 			"sdkconfig.h": "c",
 			"nvs_flash.h": "c",
 			"system_error": "c",
-			"type_traits": "c"
+			"type_traits": "c",
+			"nvs.h": "c",
+			"stdint.h": "c"
 		}
 	}
 }

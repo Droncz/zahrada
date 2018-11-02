@@ -20,6 +20,11 @@
             "type": "shell",
             "command": "idf.py",
             "args": ["build"],
+            "problemMatcher": ["$gcc","$tsc"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         },
         {
             "label": "IDF cmake flash",
@@ -34,10 +39,7 @@
             "args": ["--jobs=13", "webflash"],
             // "args": ["--jobs=13", "V=1", "all"],
             // "args": ["-v"],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
+
         },
         {
             "label": "make all",
