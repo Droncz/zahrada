@@ -176,17 +176,12 @@ esp_err_t upload_firmware_handler(httpd_req_t *req)
 }
 
 
-char *tplSwitch(httpd_req_t *req)
+void SwitchParams(httpd_req_t *req)
 {
     char *buff;
-    char *page_orig;
-    char value[50];
     size_t buf_len;
 
-    page_orig = req->user_ctx;
-
-    ESP_LOGI(TAG, "Changing the switch page");
-    
+    ESP_LOGI(TAG, "Processing parameters");
     
     // Read URL query string length and allocate memory for length + 1 extra byte for null termination
     buf_len = httpd_req_get_url_query_len(req) + 1;
@@ -195,9 +190,11 @@ char *tplSwitch(httpd_req_t *req)
         if (httpd_req_get_url_query_str(req, buff, buf_len) == ESP_OK) {
             ESP_LOGI(TAG, "Found URL query => %s", buff);
             char param[32];
-            /* Get value of expected key from query string */
+            // Start processing the parameters
+            // Here is first parameter "RELAY_1_0-state"
             if (httpd_query_key_value(buff, "RELAY_1_0-state", param, sizeof(param)) == ESP_OK) {
                 ESP_LOGI(TAG, "Found URL query parameter => RELAY_1_0-state=%s", param);
+                // And act according to its value
                 if (strcmp(param,"0")) {
                     ESP_LOGI(TAG, "Turning the relay ON!");
                     gpio_set_level(RELAY_1_0, 1);
@@ -207,78 +204,66 @@ char *tplSwitch(httpd_req_t *req)
                     gpio_set_level(RELAY_1_0, 0);
                     relays[0].state = 0;
                 }
+            // Another parameter "RELAY_1_1-state"
+            } else if (httpd_query_key_value(buff, "RELAY_1_1-state", param, sizeof(param)) == ESP_OK) {
+                // And another values    
+                if (strcmp(param,"0")) { gpio_set_level(RELAY_1_1, 1); relays[1].state = 1; }
+                else {                   gpio_set_level(RELAY_1_1, 0); relays[1].state = 0; }
 
-            }
-            if (httpd_query_key_value(buff, "RELAY_1_0-enabled", param, sizeof(param)) == ESP_OK) {
-                ESP_LOGI(TAG, "Found URL query parameter => RELAY_1_0-enabled=%s", param);
+            // Another parameter "RELAY_1_0-enabled"
+            } else if (httpd_query_key_value(buff, "RELAY_1_0-enabled", param, sizeof(param)) == ESP_OK) {
+                // And another values    
                 if (strcmp(param,"0")) {
                     ESP_LOGI(TAG, "Enabling the relay %s!", relays[0].name);
+                    ESP_ERROR_CHECK(nvs_save_int32(1, relays[0].name));
                     relays[0].enabled = 1;
-                    ESP_ERROR_CHECK(nvs_save_int32(relays[0].enabled, relays[0].name));
                 } else {
                     ESP_LOGI(TAG, "Disabling the relay %s!", relays[0].name);
+                    ESP_ERROR_CHECK(nvs_save_int32(0, relays[0].name));
                     relays[0].enabled = 0;
-                    ESP_ERROR_CHECK(nvs_save_int32(relays[0].enabled, relays[0].name));
                 }
+            // Another parameter "RELAY_1_1-enabled"
+            } else if (httpd_query_key_value(buff, "RELAY_1_1-enabled", param, sizeof(param)) == ESP_OK) {
+                // And another values    
+                if (strcmp(param,"0")) { ESP_ERROR_CHECK(nvs_save_int32(1, relays[1].name)); relays[1].enabled = 1; }
+                else {                   ESP_ERROR_CHECK(nvs_save_int32(0, relays[1].name)); relays[1].enabled = 0; }
             }
         }
         free(buff);
     }
-
-
-    sprintf(value, "%d", relays[0].gpio_num);
-    buff = replaceWord(page_orig, "%RELAY_1_0-gpio%", value);
-
-    sprintf(value, "%d", relays[1].gpio_num);
-    buff = replaceWord(buff, "%RELAY_1_1-gpio%", value);
-    
-    sprintf(value, "%d", relays[0].state);
-    buff = replaceWord(buff, "%RELAY_1_0-state%", value);
-
-    sprintf(value, "%d", relays[1].state);
-    buff = replaceWord(buff, "%RELAY_1_1-state%", value);
-
-    sprintf(value, "%d", !relays[0].state);
-    buff = replaceWord(buff, "%RELAY_1_0-newstate%", value);
-
-    sprintf(value, "%d", !relays[1].state);
-    buff = replaceWord(buff, "%RELAY_1_1-newstate%", value);
-
-    buff = replaceWord(buff, "%RELAY_1_0-checkedon%", (relays[0].enabled == 1 ? "checked" : ""));
-
-    buff = replaceWord(buff, "%RELAY_1_0-checkedoff%", (relays[0].enabled == 0 ? "checked" : ""));
-
-    buff = replaceWord(buff, "%RELAY_1_1-checkedon%", (relays[1].enabled == 1 ? "checked" : ""));
-
-    buff = replaceWord(buff, "%RELAY_1_1-checkedoff%", (relays[1].enabled == 0 ? "checked" : ""));
-
-    return buff;
 }
 
-/* ORIGINAL writing of the function (not as callback)
-char *tplIndex(httpd_req_t *req, char *page_orig)
+int switchTokens(httpd_req_t *req, char *token)
 {
-    static int hitCounter=0;
-    char buff[128];
+    ESP_LOGD(TAG, "Changing the token");
+    
+	if (strcmp(token, "RELAY_1_0-gpio")==0) sprintf(token, "%d", relays[0].gpio_num);
+    else if (strcmp(token, "RELAY_1_0-name")==0) sprintf(token, "%s", relays[0].name);
+    else if (strcmp(token, "RELAY_1_1-name")==0) sprintf(token, "%s", relays[1].name);
+    else if (strcmp(token, "RELAY_1_1-gpio")==0) sprintf(token, "%d", relays[1].gpio_num);
+    else if (strcmp(token, "RELAY_1_0-state")==0) sprintf(token, "%d", relays[0].state);
+    else if (strcmp(token, "RELAY_1_1-state")==0) sprintf(token, "%d", relays[1].state);
+    else if (strcmp(token, "RELAY_1_0-newstate")==0) sprintf(token, "%d", !relays[0].state);
+    else if (strcmp(token, "RELAY_1_1-newstate")==0) sprintf(token, "%d", !relays[1].state);
+    else if (strcmp(token, "RELAY_1_0-checkedon")==0) sprintf(token, "%s", (relays[0].enabled == 1 ? "checked" : ""));
+    else if (strcmp(token, "RELAY_1_0-checkedoff")==0) sprintf(token, "%s", (relays[0].enabled == 0 ? "checked" : ""));
+    else if (strcmp(token, "RELAY_1_1-checkedon")==0) sprintf(token, "%s", (relays[1].enabled == 1 ? "checked" : ""));
+    else if (strcmp(token, "RELAY_1_1-checkedoff")==0) sprintf(token, "%s", (relays[1].enabled == 0 ? "checked" : ""));
 
-    hitCounter++;
-    sprintf(buff, "%d", hitCounter);
-    ESP_LOGI(TAG, "Changing the index page string \"counter\" for: %s\r\n", buff);
-    return replaceWord(page_orig, "%counter%", buff);
+    return strlen(token);
 }
- */
 
-int tplIndex(httpd_req_t *req, char *token)
+int indexTokens(httpd_req_t *req, char *token)
 {
     static int hitCounter=0;
 
 	if (strcmp(token, "counter")==0) {
 		hitCounter++;
-        ESP_LOGD(TAG, "Changing the index page string \"counter\" for: %d\r\n", hitCounter);
-		sprintf(token, "%d", hitCounter);
-	}
+    	sprintf(token, "%d", hitCounter);
+	} else if (strcmp(token, "reboots")==0) 
+        sprintf(token, "%d", restart_counter);
 
-    return sizeof(token);
+    return strlen(token);
 }
 
 
@@ -310,12 +295,12 @@ esp_err_t html_get_handler(httpd_req_t *req)
 
     // Find cases with dynamic content and serve them with appropriate function
     if (strcmp(req->uri, "/index.html") == 0) {
-        // page_final = tplIndex(req->user_ctx);
-        ESP_LOGI(TAG, "Calling tokenize: %p, %p, %p .\r\n", req, req->user_ctx, tplIndex);
-        tokenize(req, req->user_ctx, tplIndex);
+        // page_final = indexTokens(req->user_ctx);
+        processTemplate(req, req->user_ctx, indexTokens);
     } else if (strncmp(req->uri, "/switch.cgi", 11) == 0) {
-        page_final = tplSwitch(req);
-        httpd_resp_send(req, page_final, strlen(page_final));
+        // page_final = tplSwitch(req);
+        SwitchParams(req);
+        processTemplate(req, req->user_ctx, switchTokens);
     } else {
         // page_final = (char *) malloc(strlen(req->user_ctx) + 1); 
         // strcpy(page_copy, req->user_ctx);

@@ -30,6 +30,7 @@ const int CONNECTED_BIT = BIT0;
 const int relays_gpios[] = RELAYS_GPIOS;
 char* relays_names[] = RELAYS_NAMES;
 relay_t relays[RELAYS_USED];
+int32_t restart_counter = 0;
 
 /* FreeRTOS event group to signal when we are connected & ready to make a request */
 static EventGroupHandle_t wifi_event_group;
@@ -244,6 +245,8 @@ void initialise_relays()
         relays[i].gpio_num = relays_gpios[i];
         relays[i].state = 0;
         ESP_ERROR_CHECK(nvs_read_int32(&relays[i].enabled, relays_names[i]));
+        if (relays[i].enabled == -1) relays[i].enabled = 1;
+        ESP_ERROR_CHECK(nvs_save_int32(relays[i].enabled, relays_names[i]));
     }
     
     // Just try to blink with RELAY_1_0 and RELAY_1_1 for now
@@ -256,7 +259,6 @@ void initialise_relays()
 static void initialise_nvs(void)
 {
     esp_err_t err;
-    int32_t restart_counter;
 
     err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {

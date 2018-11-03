@@ -38,7 +38,6 @@
 #define RELAY_2_2 GPIO_SEL_5    // Blue onboard LED 
 #define RELAY_2_3 GPIO_SEL_19
 */
-
 #define RELAY_1_0 17
 #define RELAY_1_1 16
 #define RELAY_1_2 4
@@ -50,7 +49,7 @@
 #define GPIO_OUTPUT_PIN_SEL  ((1ULL<<RELAY_1_0) | (1ULL<<RELAY_1_1) | (1ULL<<RELAY_1_2) | (1ULL<<RELAY_1_3) | (1ULL<<RELAY_2_0) | (1ULL<<RELAY_2_1) | (1ULL<<RELAY_2_2) | (1ULL<<RELAY_2_3))
 
 #define RELAYS_GPIOS { RELAY_1_0, RELAY_1_1, RELAY_1_2, RELAY_1_3, RELAY_2_0, RELAY_2_1, RELAY_2_2, RELAY_2_3 }
-#define RELAYS_NAMES { "RELAY_1_0", "RELAY_1_1", "RELAY_1_2", "RELAY_1_3", "RELAY_2_0", "RELAY_2_1", "RELAY_2_2", "RELAY_2_3" }
+#define RELAYS_NAMES { "Rajčata", "Zelenina", "Habry u Prejzy", "rybíz a habry u pole", "tráva", "bazén", "RELAY_2_2", "RELAY_2_3" }
 #define RELAYS_USED 8
 
 typedef struct {
@@ -63,7 +62,6 @@ typedef struct {
 extern relay_t relays[];
 extern const int relays_gpios[];
 extern char* relays_names[];
-
 //***********************************************
 
 //******** Definitions for the I2C bus **********
@@ -136,10 +134,12 @@ extern char* relays_names[];
 // For the delays...
 #define SECOND (1000 / portTICK_PERIOD_MS)
 
-// Global variables definition:
+//******** Global variables definition **********
 // extern float temperature;
 // extern float humidity;
 // extern float pressure;
 // extern uint16_t analogValue;
+extern int32_t restart_counter;
+//***********************************************
 
 #endif // ifndef __MY_CONFIG_H__

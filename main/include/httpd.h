@@ -11,6 +11,6 @@ void            register_handlers(httpd_handle_t webserver);
 // typedef void (* TplCallback)(HttpdConnData *connData, char *token, void **arg);
 typedef int (*changeToken_cb_t)(httpd_req_t *req, char *token);
 
-void tokenize(httpd_req_t *req, char *buff, changeToken_cb_t changeToken_cb);
+void processTemplate(httpd_req_t *req, char *buff, changeToken_cb_t changeToken_cb);
 
 #endif // __MY_TESTS_H__
