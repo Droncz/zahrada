@@ -18,7 +18,7 @@
     <th>Povoleno/Zakázáno</th>
   </tr>
   <tr>
-    <td>RELAY_1_0</td>
+    <td>%RELAY_1_0-name%</td>
     <td>%RELAY_1_0-gpio%</td>
     <td>%RELAY_1_0-state%</td>
     <td>
@@ -36,7 +36,7 @@
     </td>
   </tr>
   <tr>
-    <td>RELAY_1_1</td>
+    <td>%RELAY_1_1-name%</td>
     <td>%RELAY_1_1-gpio%</td>
     <td>%RELAY_1_1-state%</td>
     <td>
