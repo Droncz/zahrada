@@ -6,10 +6,10 @@
 #include "esp_system.h"
 #include "esp_ota_ops.h"
 #include "esp_event_loop.h"
+#include "esp_http_server.h"
 #include "esp_flash_partitions.h"
 
 #include "nvs_flash.h"
-#include "http_server.h"
 #include "driver/gpio.h"
 #include "lwip/apps/sntp.h"
 
@@ -27,10 +27,16 @@
    to the AP with an IP? */
 const int CONNECTED_BIT = BIT0;
 
+// Definitions of startup relay to GPIO variables
+// See the macro definitios in "config.h"
 const int relays_gpios[] = RELAYS_GPIOS;
 char* relays_names[] = RELAYS_NAMES;
 relay_t relays[RELAYS_USED];
 int32_t restart_counter = 0;
+
+// Definition of "crontab"
+// See the macro definitios in "config.h"
+const showtime_t showtime[] = {RAJCATA};
 
 /* FreeRTOS event group to signal when we are connected & ready to make a request */
 static EventGroupHandle_t wifi_event_group;
@@ -325,12 +331,13 @@ void app_main()
     printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
             (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
-    // Initialize NVS.
+    // Initialize NVS and read stored variables
     initialise_nvs();
 
     // Call for the Wi-Fi initialization, which in addition sets up system event handler to
     //  1) on the event of reception of the IP address:
     //      1.1) starts the webserver
+    //             The webserver registers all the handlers according to definitions in "urls.h"
     //      1.2) sets "CONNECTED_BIT" using the FreeRTOS "Event Group" to signal other tasks
     initialise_wifi();
 
@@ -338,7 +345,21 @@ void app_main()
     
     // After the Wi-fi connects, try to receive and set the system time using the NTP protocol
     // Setup a task which will print the time every few minutes
+    // TO-DO:
+    //  1) Every time immediately after receiving the SNTP time, update the external time chip
+    //  2) Try to read the time (SNTP, external chip) and correct the system time
     initialise_sntp();
+
+    // TO-DO:
+    // Asi chci roční ?? cykly, takže bude nezbytné počítat vždy timestamp od začátku roku
+    //  - Načíst/projít pole s definicí relé a funkcí, které spínají/vypínají relé
+    //  - Spočítat timestampy od začátku roku
+    //  - seřadit 
+    //  - zaregistrovat funkce v daných timestamps
+    //  - ve funkci, která sleduje čas, vždy čekat (jen) do dalšího timestampu a pak spustut funkci
+
+    // initialise_cron(); // spustí task "cron", který bude vyvolávat zaregistrované callbacky v zaregistrovaný čas
+    // initialise_cron_jobs(); // připraví seznam aktivit (časů) a zaregistruje je s callbacky u tasku "cron"
 
     // Setup GPIOs for the requested function
     initialise_relays();

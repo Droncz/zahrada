@@ -1,10 +1,16 @@
 #ifndef __MY_CONFIG_H__
 #define __MY_CONFIG_H__
 
+#define TAG "ZAHRADA"
+
+#ifndef MIN
+#define MIN(x, y)  ((x) < (y) ? (x) : (y))
+#endif
+
 #define WIFI_SSID CONFIG_WIFI_SSID
 #define WIFI_PASSWORD CONFIG_WIFI_PASSWORD
 
-//******** Define level of logging **************
+//******** Define level(s) of logging ***********
 #undef LOG_LOCAL_LEVEL
 // #define LOG_LOCAL_LEVEL ESP_LOG_ERROR
 // #define LOG_LOCAL_LEVEL ESP_LOG_WARNING
@@ -12,12 +18,6 @@
 // #define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
 // #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 //***********************************************
-
-#define TAG "ZAHRADA"
-
-#ifndef MIN
-#define MIN(x, y)  ((x) < (y) ? (x) : (y))
-#endif
 
 //******** Buffer size for flashing ROM**********
 #define BUFFSIZE 1024
@@ -27,17 +27,7 @@
 #define MAXTOKENSIZE 64
 //***********************************************
 
-//******** PINs connections *********************
-/* 
-#define RELAY_1_0 GPIO_SEL_17
-#define RELAY_1_1 GPIO_SEL_16
-#define RELAY_1_2 GPIO_SEL_4
-#define RELAY_1_3 GPIO_SEL_2    // Bootstrap - "Low" for flashing
-#define RELAY_2_0 GPIO_SEL_23
-#define RELAY_2_1 GPIO_SEL_18
-#define RELAY_2_2 GPIO_SEL_5    // Blue onboard LED 
-#define RELAY_2_3 GPIO_SEL_19
-*/
+//******** RELAY PINs connections ***************
 #define RELAY_1_0 17
 #define RELAY_1_1 16
 #define RELAY_1_2 4
@@ -48,8 +38,9 @@
 #define RELAY_2_3 19
 #define GPIO_OUTPUT_PIN_SEL  ((1ULL<<RELAY_1_0) | (1ULL<<RELAY_1_1) | (1ULL<<RELAY_1_2) | (1ULL<<RELAY_1_3) | (1ULL<<RELAY_2_0) | (1ULL<<RELAY_2_1) | (1ULL<<RELAY_2_2) | (1ULL<<RELAY_2_3))
 
-#define RELAYS_GPIOS { RELAY_1_0, RELAY_1_1, RELAY_1_2, RELAY_1_3, RELAY_2_0, RELAY_2_1, RELAY_2_2, RELAY_2_3 }
-#define RELAYS_NAMES { "Rajčata", "Zelenina", "Habry u Prejzy", "rybíz a habry u pole", "tráva", "bazén", "RELAY_2_2", "RELAY_2_3" }
+// index in arrays     0          1           2                 3                       4          5          6            7
+#define RELAYS_GPIOS { RELAY_1_0, RELAY_1_1,  RELAY_1_2,        RELAY_1_3,              RELAY_2_0, RELAY_2_1, RELAY_2_2,   RELAY_2_3 }
+#define RELAYS_NAMES { "Rajčata", "Zelenina", "Habry u Prejzy", "rybíz a habry u pole", "tráva",   "bazén",   "RELAY_2_2", "RELAY_2_3" }
 #define RELAYS_USED 8
 
 typedef struct {
@@ -63,6 +54,29 @@ extern relay_t relays[];
 extern const int relays_gpios[];
 extern char* relays_names[];
 //***********************************************
+
+//******** Intervals definitions ****************
+// structure for single start definition
+typedef struct {
+    int relay;          // relay index
+    // uint16_t monthbits;    // bit array of month (bits 0-11 toggle the months)
+    uint8_t daybits;        // bit array of week (0 = monday to 6 = sunday)
+                            // i.e.: 0b01000000 = sunday
+                            // i.e.: 0b00000001 = monday
+                            // i.e.: 0b00011111 = weekdays
+                            // i.e.: 0b01100000 = weekend (saturday + sunday)
+    int hour;
+    int minute;
+    int duration;       // duration in minutes
+} showtime_t;
+
+#define RAJCATA \
+  {0, 0b01111111, 6, 0, 5}, \
+  {0, 0b01111111, 6, 30, 5}, \
+  {0, 0b01111111, 18, 0, 5}, \
+  {0, 0b01111111, 18, 30, 5}
+//***********************************************
+
 
 //******** Definitions for the I2C bus **********
 #define I2C_BUS (0)
