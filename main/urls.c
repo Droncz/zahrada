@@ -4,8 +4,7 @@
 #include <esp_log.h>
 #include <esp_system.h>
 #include <esp_ota_ops.h>
-
-#include <http_server.h>
+#include <esp_http_server.h>
 
 #include "config.h"
 #include "nvs_funcs.h"
