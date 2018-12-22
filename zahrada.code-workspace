@@ -30,7 +30,8 @@
 			"system_error": "c",
 			"type_traits": "c",
 			"nvs.h": "c",
-			"stdint.h": "c"
+			"stdint.h": "c",
+			"task.h": "c"
 		}
 	}
 }
